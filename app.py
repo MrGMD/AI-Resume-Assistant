@@ -2,11 +2,13 @@ import io
 import os
 import re
 from typing import List
+from html import escape
 
 import streamlit as st
 from google import genai
 from google.genai import types
 from pydantic import BaseModel, Field
+
 
 # ============================================================
 # OPTIONAL DEPENDENCIES
@@ -42,264 +44,590 @@ st.set_page_config(
 
 
 # ============================================================
-# CUSTOM CSS
+# GLOBAL CSS
 # ============================================================
 
 st.markdown(
     """
-    <style>
+<style>
 
-    /* --------------------------------------------------------
-       APP
-    -------------------------------------------------------- */
+/* =========================================================
+   GLOBAL THEME
+   ========================================================= */
 
-    .stApp {
-        background: #f7f9fc;
-    }
+:root {
+    --primary: #4f46e5;
+    --primary-dark: #3730a3;
+    --primary-light: #eef2ff;
 
-    .block-container {
-        max-width: 1180px;
-        padding-top: 2rem;
-        padding-bottom: 3rem;
-    }
+    --text: #111827;
+    --text-secondary: #64748b;
+    --muted: #94a3b8;
+
+    --background: #f8fafc;
+    --surface: #ffffff;
+    --border: #e2e8f0;
+
+    --success: #059669;
+    --success-bg: #ecfdf5;
+
+    --warning: #d97706;
+    --warning-bg: #fffbeb;
+
+    --danger: #dc2626;
+    --danger-bg: #fef2f2;
+
+    --shadow:
+        0 8px 30px rgba(15, 23, 42, 0.06);
+}
 
 
-    /* --------------------------------------------------------
-       HERO
-    -------------------------------------------------------- */
+/* =========================================================
+   APP BACKGROUND
+   ========================================================= */
 
-    .hero {
-        padding: 2.2rem 2.4rem;
-        border-radius: 22px;
-        margin-bottom: 1.5rem;
+.stApp {
+    background: var(--background) !important;
+}
 
-        background: linear-gradient(
+[data-testid="stAppViewContainer"] {
+    background: var(--background) !important;
+}
+
+[data-testid="stMain"] {
+    background: var(--background) !important;
+}
+
+.block-container {
+    max-width: 1240px !important;
+    padding-top: 2rem !important;
+    padding-bottom: 4rem !important;
+}
+
+
+/* =========================================================
+   FORCE READABLE TEXT
+   ========================================================= */
+
+.stMarkdown,
+.stMarkdown p,
+.stMarkdown span,
+.stMarkdown li,
+.stMarkdown label,
+[data-testid="stText"],
+[data-testid="stCaptionContainer"],
+[data-testid="stWidgetLabel"],
+[data-testid="stWidgetLabel"] p,
+[data-testid="stFileUploader"] label {
+    color: var(--text) !important;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    color: var(--text) !important;
+}
+
+
+/* =========================================================
+   HERO
+   ========================================================= */
+
+.hero-container {
+    background:
+        radial-gradient(
+            circle at top right,
+            rgba(99, 102, 241, 0.25),
+            transparent 35%
+        ),
+        linear-gradient(
             135deg,
-            #111827 0%,
-            #1f2937 55%,
-            #374151 100%
+            #0f172a 0%,
+            #172554 50%,
+            #312e81 100%
         );
 
-        color: white;
+    border-radius: 24px;
+    padding: 2.5rem;
 
-        box-shadow:
-            0 12px 35px rgba(17, 24, 39, 0.16);
+    margin-bottom: 2rem;
+
+    box-shadow:
+        0 20px 50px rgba(15, 23, 42, 0.16);
+
+    color: white !important;
+}
+
+.hero-container h1 {
+    color: white !important;
+    font-size: 2.7rem;
+    font-weight: 800;
+    letter-spacing: -0.04em;
+    margin: 0;
+}
+
+.hero-container p {
+    color: #cbd5e1 !important;
+    font-size: 1.05rem;
+    line-height: 1.7;
+    max-width: 780px;
+    margin-top: 0.8rem;
+    margin-bottom: 0;
+}
+
+.hero-badge {
+    display: inline-block;
+
+    background: rgba(255,255,255,0.10);
+    border: 1px solid rgba(255,255,255,0.15);
+
+    color: #e0e7ff !important;
+
+    border-radius: 999px;
+
+    padding: 0.45rem 0.85rem;
+
+    font-size: 0.78rem;
+    font-weight: 700;
+
+    margin-bottom: 1rem;
+}
+
+
+/* =========================================================
+   INPUT CARDS
+   ========================================================= */
+
+.input-card {
+    background: var(--surface);
+
+    border: 1px solid var(--border);
+    border-radius: 20px;
+
+    padding: 1.25rem;
+
+    box-shadow: var(--shadow);
+
+    height: 100%;
+}
+
+.input-card-title {
+    font-size: 1.05rem;
+    font-weight: 750;
+
+    color: var(--text) !important;
+
+    margin-bottom: 0.35rem;
+}
+
+.input-card-subtitle {
+    font-size: 0.86rem;
+
+    color: var(--text-secondary) !important;
+
+    margin-bottom: 1rem;
+}
+
+
+/* =========================================================
+   FILE UPLOADER
+   ========================================================= */
+
+[data-testid="stFileUploader"] {
+    background: #f8fafc !important;
+    border: 1.5px dashed #cbd5e1 !important;
+    border-radius: 16px !important;
+    padding: 0.5rem !important;
+}
+
+[data-testid="stFileUploader"] section {
+    background: transparent !important;
+}
+
+[data-testid="stFileUploaderDropzone"] {
+    background: #f8fafc !important;
+}
+
+
+/* =========================================================
+   TEXT AREA
+   ========================================================= */
+
+.stTextArea textarea {
+    background: #ffffff !important;
+
+    color: #111827 !important;
+
+    border: 1px solid #cbd5e1 !important;
+
+    border-radius: 14px !important;
+
+    font-size: 0.95rem !important;
+}
+
+.stTextArea textarea::placeholder {
+    color: #94a3b8 !important;
+}
+
+
+/* =========================================================
+   BUTTONS
+   ========================================================= */
+
+.stButton > button {
+    border-radius: 12px !important;
+
+    min-height: 46px !important;
+
+    font-weight: 750 !important;
+
+    border: 1px solid #cbd5e1 !important;
+
+    transition:
+        transform 0.15s ease,
+        box-shadow 0.15s ease !important;
+}
+
+.stButton > button:hover {
+    transform: translateY(-1px);
+
+    box-shadow:
+        0 8px 18px rgba(15, 23, 42, 0.10);
+}
+
+
+/* =========================================================
+   SCORE SECTION
+   ========================================================= */
+
+.score-section {
+    margin-top: 1rem;
+    margin-bottom: 1rem;
+}
+
+.score-card {
+    background: #ffffff;
+
+    border: 1px solid var(--border);
+
+    border-radius: 18px;
+
+    padding: 1.15rem;
+
+    min-height: 132px;
+
+    box-shadow:
+        0 5px 18px rgba(15, 23, 42, 0.05);
+
+    transition:
+        transform 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+.score-card:hover {
+    transform: translateY(-3px);
+
+    box-shadow:
+        0 12px 28px rgba(15, 23, 42, 0.09);
+}
+
+.score-label {
+    color: #64748b !important;
+
+    font-size: 0.73rem;
+
+    font-weight: 800;
+
+    text-transform: uppercase;
+
+    letter-spacing: 0.06em;
+}
+
+.score-number {
+    margin-top: 0.4rem;
+
+    font-size: 2rem;
+
+    font-weight: 850;
+
+    letter-spacing: -0.04em;
+}
+
+.score-track {
+    height: 6px;
+
+    width: 100%;
+
+    background: #e2e8f0;
+
+    border-radius: 999px;
+
+    margin-top: 0.8rem;
+
+    overflow: hidden;
+}
+
+.score-fill {
+    height: 100%;
+
+    border-radius: 999px;
+}
+
+
+/* =========================================================
+   OVERALL SCORE
+   ========================================================= */
+
+.overall-card {
+    background: #ffffff;
+
+    border: 1px solid var(--border);
+
+    border-radius: 22px;
+
+    padding: 1.5rem;
+
+    box-shadow: var(--shadow);
+
+    margin-top: 1.25rem;
+}
+
+.overall-title {
+    color: #111827 !important;
+
+    font-size: 1.1rem;
+
+    font-weight: 800;
+}
+
+.overall-score {
+    font-size: 3.2rem;
+
+    font-weight: 900;
+
+    line-height: 1;
+
+    letter-spacing: -0.05em;
+
+    margin-top: 0.35rem;
+}
+
+.overall-description {
+    color: #64748b !important;
+
+    font-size: 0.9rem;
+
+    line-height: 1.6;
+
+    margin-top: 0.5rem;
+}
+
+
+/* =========================================================
+   RESULT CARDS
+   ========================================================= */
+
+.result-card {
+    background: #ffffff;
+
+    border: 1px solid var(--border);
+
+    border-radius: 18px;
+
+    padding: 1.25rem;
+
+    margin-bottom: 0.9rem;
+
+    box-shadow:
+        0 4px 16px rgba(15, 23, 42, 0.04);
+}
+
+.result-card-title {
+    color: #111827 !important;
+
+    font-weight: 800;
+
+    font-size: 1rem;
+
+    margin-bottom: 0.4rem;
+}
+
+.result-card-text {
+    color: #475569 !important;
+
+    font-size: 0.92rem;
+
+    line-height: 1.65;
+}
+
+
+/* =========================================================
+   KEYWORD PILLS
+   ========================================================= */
+
+.keyword-pill {
+    display: inline-block;
+
+    background: #eef2ff;
+
+    color: #3730a3 !important;
+
+    border: 1px solid #c7d2fe;
+
+    border-radius: 999px;
+
+    padding: 0.4rem 0.7rem;
+
+    margin: 0.2rem;
+
+    font-size: 0.82rem;
+
+    font-weight: 700;
+}
+
+
+/* =========================================================
+   EMPTY STATE
+   ========================================================= */
+
+.empty-card {
+    background: #ffffff;
+
+    border: 1px solid var(--border);
+
+    border-radius: 22px;
+
+    padding: 2.2rem;
+
+    text-align: center;
+
+    box-shadow: var(--shadow);
+
+    margin-top: 1.5rem;
+}
+
+.empty-icon {
+    font-size: 2.7rem;
+
+    margin-bottom: 0.5rem;
+}
+
+.empty-title {
+    color: #111827 !important;
+
+    font-size: 1.3rem;
+
+    font-weight: 800;
+}
+
+.empty-text {
+    color: #64748b !important;
+
+    max-width: 650px;
+
+    margin: 0.5rem auto;
+
+    line-height: 1.6;
+}
+
+
+/* =========================================================
+   SIDEBAR
+   ========================================================= */
+
+[data-testid="stSidebar"] {
+    background: #ffffff !important;
+
+    border-right: 1px solid #e2e8f0;
+}
+
+[data-testid="stSidebar"] * {
+    color: #111827 !important;
+}
+
+
+/* =========================================================
+   TABS
+   ========================================================= */
+
+button[data-baseweb="tab"] {
+    color: #64748b !important;
+
+    font-weight: 700 !important;
+}
+
+button[data-baseweb="tab"][aria-selected="true"] {
+    color: #4f46e5 !important;
+}
+
+
+/* =========================================================
+   EXPANDERS
+   ========================================================= */
+
+[data-testid="stExpander"] {
+    background: #ffffff !important;
+
+    border: 1px solid #e2e8f0 !important;
+
+    border-radius: 14px !important;
+
+    margin-bottom: 0.7rem;
+}
+
+[data-testid="stExpander"] summary p {
+    color: #111827 !important;
+
+    font-weight: 700 !important;
+}
+
+
+/* =========================================================
+   ALERTS
+   ========================================================= */
+
+[data-testid="stAlert"] {
+    border-radius: 14px !important;
+}
+
+
+/* =========================================================
+   MOBILE
+   ========================================================= */
+
+@media (max-width: 768px) {
+
+    .block-container {
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
     }
 
-    .hero h1 {
-        margin: 0;
-        font-size: 2.5rem;
-        font-weight: 800;
-        letter-spacing: -0.03em;
-    }
+    .hero-container {
+        padding: 1.5rem;
 
-    .hero p {
-        margin: 0.6rem 0 0;
-        color: #d1d5db;
-        font-size: 1.05rem;
-        line-height: 1.6;
-    }
-
-
-    /* --------------------------------------------------------
-       GENERAL
-    -------------------------------------------------------- */
-
-    .small-note {
-        color: #6b7280;
-        font-size: 0.88rem;
-    }
-
-    .section-title {
-        font-size: 1.25rem;
-        font-weight: 750;
-        color: #111827;
-        margin-top: 1rem;
-        margin-bottom: 0.7rem;
-    }
-
-
-    /* --------------------------------------------------------
-       SCORE CARDS
-    -------------------------------------------------------- */
-
-    .metric-wrapper {
-        width: 100%;
-        box-sizing: border-box;
-    }
-
-    .metric-card {
-        width: 100%;
-        min-height: 125px;
-        box-sizing: border-box;
-
-        background: #ffffff;
-
-        border: 1px solid #e5e7eb;
         border-radius: 18px;
-
-        padding: 1.15rem 1rem;
-
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-
-        text-align: center;
-
-        box-shadow:
-            0 4px 14px rgba(15, 23, 42, 0.05);
-
-        transition:
-            transform 0.2s ease,
-            box-shadow 0.2s ease;
     }
 
-    .metric-card:hover {
-        transform: translateY(-2px);
-
-        box-shadow:
-            0 8px 22px rgba(15, 23, 42, 0.09);
-    }
-
-    .metric-label {
-        color: #6b7280;
-
-        font-size: 0.76rem;
-        font-weight: 700;
-
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
-
-        line-height: 1.3;
-    }
-
-    .metric-value {
-        margin-top: 0.45rem;
-
+    .hero-container h1 {
         font-size: 2rem;
-        line-height: 1;
-
-        font-weight: 800;
-        letter-spacing: -0.03em;
     }
 
-    .good {
-        color: #047857;
+    .hero-container p {
+        font-size: 0.93rem;
     }
 
-    .warn {
-        color: #b45309;
+    .score-card {
+        min-height: 110px;
     }
 
-    .bad {
-        color: #b91c1c;
-    }
+}
 
-
-    /* --------------------------------------------------------
-       RESULT BOXES
-    -------------------------------------------------------- */
-
-    .result-box {
-        background: white;
-
-        border: 1px solid #e5e7eb;
-        border-radius: 18px;
-
-        padding: 1.3rem 1.4rem;
-
-        margin-bottom: 1rem;
-
-        box-shadow:
-            0 4px 14px rgba(15, 23, 42, 0.04);
-    }
-
-
-    /* --------------------------------------------------------
-       FILE AREA
-    -------------------------------------------------------- */
-
-    [data-testid="stFileUploader"] {
-        background: white;
-        border-radius: 16px;
-    }
-
-
-    /* --------------------------------------------------------
-       BUTTON
-    -------------------------------------------------------- */
-
-    .stButton > button {
-        border-radius: 12px;
-        font-weight: 700;
-        min-height: 46px;
-    }
-
-
-    /* --------------------------------------------------------
-       TABS
-    -------------------------------------------------------- */
-
-    button[data-baseweb="tab"] {
-        font-weight: 650;
-    }
-
-
-    /* --------------------------------------------------------
-       MOBILE
-    -------------------------------------------------------- */
-
-    @media (max-width: 768px) {
-
-        .block-container {
-            padding-left: 1rem;
-            padding-right: 1rem;
-        }
-
-        .hero {
-            padding: 1.5rem;
-            border-radius: 18px;
-        }
-
-        .hero h1 {
-            font-size: 1.9rem;
-        }
-
-        .hero p {
-            font-size: 0.95rem;
-        }
-
-    }
-
-    </style>
-    """,
+</style>
+""",
     unsafe_allow_html=True,
 )
 
 
 # ============================================================
-# HERO
-# ============================================================
-
-st.markdown(
-    """
-    <div class="hero">
-        <h1>📄 Resume ATS Analyzer</h1>
-
-        <p>
-            Upload your resume, optionally add a target job description,
-            and get an ATS-style score with practical improvements
-            powered by Google Gemini Flash.
-        </p>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
-
-
-# ============================================================
-# GEMINI STRUCTURED RESPONSE SCHEMA
+# DATA MODELS
 # ============================================================
 
 class CategoryScore(BaseModel):
@@ -345,7 +673,6 @@ class ResumeAnalysis(BaseModel):
 
 def get_api_key() -> str | None:
 
-    # Streamlit Cloud Secrets
     try:
 
         secret = st.secrets.get(
@@ -360,8 +687,6 @@ def get_api_key() -> str | None:
 
         pass
 
-
-    # Local environment
     return (
         os.getenv("GEMINI_API_KEY")
         or os.getenv("GOOGLE_API_KEY")
@@ -369,7 +694,7 @@ def get_api_key() -> str | None:
 
 
 # ============================================================
-# PDF EXTRACTION
+# FILE EXTRACTION
 # ============================================================
 
 def extract_pdf(file_bytes: bytes) -> str:
@@ -377,11 +702,10 @@ def extract_pdf(file_bytes: bytes) -> str:
     if pymupdf is None:
 
         raise RuntimeError(
-            "PyMuPDF is not installed. "
-            "Please check requirements.txt."
+            "PyMuPDF is not installed."
         )
 
-    text_parts = []
+    parts = []
 
     try:
 
@@ -392,15 +716,11 @@ def extract_pdf(file_bytes: bytes) -> str:
 
             for page in pdf:
 
-                page_text = page.get_text(
-                    "text"
-                )
+                text = page.get_text("text")
 
-                if page_text:
+                if text:
 
-                    text_parts.append(
-                        page_text
-                    )
+                    parts.append(text)
 
     except Exception as exc:
 
@@ -408,20 +728,15 @@ def extract_pdf(file_bytes: bytes) -> str:
             f"Could not read PDF: {exc}"
         ) from exc
 
-    return "\n".join(text_parts)
+    return "\n".join(parts)
 
-
-# ============================================================
-# DOCX EXTRACTION
-# ============================================================
 
 def extract_docx(file_bytes: bytes) -> str:
 
     if Document is None:
 
         raise RuntimeError(
-            "python-docx is not installed. "
-            "Please check requirements.txt."
+            "python-docx is not installed."
         )
 
     try:
@@ -433,14 +748,11 @@ def extract_docx(file_bytes: bytes) -> str:
     except Exception as exc:
 
         raise RuntimeError(
-            f"Could not read DOCX file: {exc}"
+            f"Could not read DOCX: {exc}"
         ) from exc
-
 
     parts = []
 
-
-    # Paragraphs
     for paragraph in doc.paragraphs:
 
         text = paragraph.text.strip()
@@ -449,8 +761,6 @@ def extract_docx(file_bytes: bytes) -> str:
 
             parts.append(text)
 
-
-    # Tables
     for table in doc.tables:
 
         for row in table.rows:
@@ -466,13 +776,8 @@ def extract_docx(file_bytes: bytes) -> str:
                     " | ".join(cells)
                 )
 
-
     return "\n".join(parts)
 
-
-# ============================================================
-# RESUME EXTRACTION
-# ============================================================
 
 def extract_resume(uploaded_file) -> str:
 
@@ -490,19 +795,15 @@ def extract_resume(uploaded_file) -> str:
             f"{MAX_FILE_MB} MB."
         )
 
-
     filename = uploaded_file.name.lower()
-
 
     if filename.endswith(".pdf"):
 
         text = extract_pdf(data)
 
-
     elif filename.endswith(".docx"):
 
         text = extract_docx(data)
-
 
     elif filename.endswith(".txt"):
 
@@ -511,7 +812,6 @@ def extract_resume(uploaded_file) -> str:
             errors="replace"
         )
 
-
     else:
 
         raise ValueError(
@@ -519,14 +819,11 @@ def extract_resume(uploaded_file) -> str:
             "Please upload PDF, DOCX, or TXT."
         )
 
-
-    # Clean excessive whitespace
     text = re.sub(
         r"\n{3,}",
         "\n\n",
         text
     ).strip()
-
 
     if not text:
 
@@ -535,7 +832,6 @@ def extract_resume(uploaded_file) -> str:
             "If this is a scanned/image-only PDF, "
             "please use a text-based PDF or DOCX."
         )
-
 
     return text[:MAX_TEXT_CHARS]
 
@@ -562,145 +858,65 @@ def build_prompt(
             "stated target role and skills."
         )
 
-
     return f"""
 You are an expert ATS resume reviewer,
 technical recruiter, and career advisor.
 
 Analyze the resume below for ATS readiness.
 
-IMPORTANT:
-
-This is an advisory heuristic score.
-
-It is NOT a score from a specific ATS vendor.
+This is an advisory heuristic score,
+not a score from a specific ATS vendor.
 
 Be evidence-based.
 
-Do NOT invent:
-
-- experience
-- skills
-- employers
-- degrees
-- metrics
-- certifications
-- achievements
-- keywords
-
-as if the candidate already has them.
+Never invent experience, skills, employers,
+degrees, metrics, certifications, achievements,
+or keywords as if the candidate already has them.
 
 If suggesting a keyword, clearly treat it as
-a keyword to consider adding only if it is truthful.
+a keyword to consider adding only if truthful.
 
-============================================================
-SCORING GUIDANCE
-============================================================
+Evaluate:
 
-KEYWORD ALIGNMENT
+1. Keyword alignment
+2. Formatting and ATS parseability
+3. Experience impact
+4. Technical skills
+5. Resume completeness
+6. Overall ATS readiness
 
-Evaluate how well the resume's:
+For experience, prioritize:
 
-- skills
-- terminology
-- technologies
-- experience
-- role-specific language
+- action verbs
+- measurable outcomes
+- specificity
+- technical depth
+- relevant accomplishments
 
-match the target job description.
+For formatting, consider:
 
-If no job description is provided,
-judge general role and skill targeting.
-
-------------------------------------------------------------
-
-FORMATTING
-
-Evaluate ATS parseability, including:
-
-- conventional section headings
-- readable dates
-- layout simplicity
+- standard section headings
+- dates
 - tables
 - text boxes
 - headers
 - footers
 - unusual symbols
 - excessive styling
-- inconsistent formatting
 
-Only infer formatting issues when supported
-by the extracted resume text.
+Give realistic scores.
 
-------------------------------------------------------------
+Do not give 90+ unless the resume is genuinely excellent.
 
-EXPERIENCE IMPACT
+Prioritize the highest-impact improvements.
 
-Evaluate:
+Return concise, actionable feedback.
 
-- action verbs
-- measurable outcomes
-- specificity
-- relevance
-- accomplishments
-- responsibility-only bullets
-- technical depth
-
-Prioritize evidence of impact.
-
-------------------------------------------------------------
-
-SKILLS
-
-Evaluate:
-
-- technical/hard skills
-- clarity
-- organization
-- consistency
-- relevance
-- role-specific technologies
-
-------------------------------------------------------------
-
-COMPLETENESS
-
-Evaluate whether useful resume sections are present,
-such as:
-
-- contact/header
-- professional summary
-- experience
-- education
-- skills
-- dates
-- certifications
-- projects
-- relevant additional sections
-
-------------------------------------------------------------
-
-ATS READINESS
-
-Give an overall score from 0 to 100.
-
-Keep the score realistic.
-
-Do NOT give 90+ unless the resume is genuinely strong.
-
-Prioritize the highest-impact improvements first.
-
-Return concise and actionable feedback.
-
-============================================================
-TARGET JOB DESCRIPTION
-============================================================
+TARGET JOB DESCRIPTION:
 
 {jd_block}
 
-============================================================
-RESUME TEXT
-============================================================
+RESUME TEXT:
 
 -------------------------
 {resume_text}
@@ -724,7 +940,6 @@ def analyze_resume(
             api_key=api_key
         )
 
-
         response = client.models.generate_content(
 
             model=MODEL_NAME,
@@ -743,7 +958,6 @@ def analyze_resume(
             ),
         )
 
-
     except Exception as exc:
 
         error_text = str(exc)
@@ -752,45 +966,33 @@ def analyze_resume(
 
             raise RuntimeError(
                 f"Gemini model '{MODEL_NAME}' "
-                "is not available for this API key/project. "
-                "Check the current Gemini model available "
-                "to your Google AI project."
+                "is not available for this API key/project."
             ) from exc
-
 
         if "401" in error_text:
 
             raise RuntimeError(
-                "Gemini API authentication failed. "
-                "Check your GEMINI_API_KEY."
+                "Gemini authentication failed. "
+                "Please check GEMINI_API_KEY."
             ) from exc
-
 
         if "403" in error_text:
 
             raise RuntimeError(
-                "Gemini API access was denied. "
-                "Check your API key, project permissions, "
-                "and Gemini API access."
+                "Gemini access was denied. "
+                "Check your API project permissions."
             ) from exc
-
 
         if "429" in error_text:
 
             raise RuntimeError(
-                "Gemini API quota/rate limit reached. "
-                "Please wait and try again."
+                "Gemini API quota or rate limit reached. "
+                "Please try again later."
             ) from exc
-
 
         raise RuntimeError(
             f"Gemini request failed: {error_text}"
         ) from exc
-
-
-    # --------------------------------------------------------
-    # Validate response
-    # --------------------------------------------------------
 
     if not response.text:
 
@@ -813,15 +1015,9 @@ def analyze_resume(
                 parsed
             )
 
-
         raise RuntimeError(
             "Gemini returned an empty response."
         )
-
-
-    # --------------------------------------------------------
-    # Parse JSON
-    # --------------------------------------------------------
 
     try:
 
@@ -851,56 +1047,107 @@ def analyze_resume(
             )
 
         raise RuntimeError(
-            "Could not parse Gemini's structured "
-            f"response: {exc}"
+            "Could not parse Gemini's response."
         ) from exc
 
 
 # ============================================================
-# SCORE HELPERS
+# UI HELPERS
 # ============================================================
 
-def score_class(score: int) -> str:
+def score_color(score: int) -> str:
 
     if score >= 80:
-
-        return "good"
+        return "#059669"
 
     if score >= 60:
+        return "#d97706"
 
-        return "warn"
-
-    return "bad"
+    return "#dc2626"
 
 
-def metric_card(
+def score_card_html(
     label: str,
-    value: int
+    score: int
 ) -> str:
 
-    cls = score_class(value)
+    color = score_color(score)
 
-    # IMPORTANT:
-    # This HTML is rendered using st.html()
-    # instead of st.markdown().
+    safe_label = escape(label)
 
     return f"""
-    <div class="metric-wrapper">
+    <div class="score-card">
 
-        <div class="metric-card">
+        <div class="score-label">
+            {safe_label}
+        </div>
 
-            <div class="metric-label">
-                {label}
-            </div>
+        <div
+            class="score-number"
+            style="color:{color};"
+        >
+            {score}/100
+        </div>
 
-            <div class="metric-value {cls}">
-                {value}/100
-            </div>
-
+        <div class="score-track">
+            <div
+                class="score-fill"
+                style="
+                    width:{score}%;
+                    background:{color};
+                "
+            ></div>
         </div>
 
     </div>
     """
+
+
+def keyword_pills(
+    keywords: List[str]
+) -> str:
+
+    if not keywords:
+
+        return ""
+
+    return "".join(
+        f'<span class="keyword-pill">{escape(item)}</span>'
+        for item in keywords
+    )
+
+
+# ============================================================
+# HERO
+# ============================================================
+
+# IMPORTANT:
+# st.html() is used here.
+# This prevents the <p> tag problem visible
+# in the screenshot.
+
+st.html(
+    """
+    <div class="hero-container">
+
+        <div class="hero-badge">
+            ✦ AI-POWERED RESUME REVIEW
+        </div>
+
+        <h1>
+            📄 Resume ATS Analyzer
+        </h1>
+
+        <p>
+            Analyze your resume against ATS best practices,
+            identify missing keywords, discover weaknesses,
+            and get practical recommendations to improve
+            your chances of reaching the recruiter.
+        </p>
+
+    </div>
+    """
+)
 
 
 # ============================================================
@@ -909,37 +1156,108 @@ def metric_card(
 
 with st.sidebar:
 
-    st.header("⚙️ Settings")
-
-    st.caption(
-        "Powered by Google Gemini 3.6 Flash"
-    )
-
-    st.info(
-        "For production, keep your Gemini API key "
-        "in Streamlit Secrets. Never commit it to GitHub."
+    st.markdown(
+        "## ⚙️ Analyzer Settings"
     )
 
     st.markdown(
-        "**Accepted files:** PDF, DOCX, TXT"
+        """
+        <div style="
+            background:#eef2ff;
+            border:1px solid #c7d2fe;
+            border-radius:14px;
+            padding:12px;
+            margin-bottom:16px;
+        ">
+            <div style="
+                color:#3730a3;
+                font-weight:800;
+                font-size:14px;
+            ">
+                ✦ Gemini 3.6 Flash
+            </div>
+
+            <div style="
+                color:#6366f1;
+                font-size:12px;
+                margin-top:4px;
+            ">
+                AI-powered resume analysis
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
 
     st.markdown(
-        f"**Maximum size:** {MAX_FILE_MB} MB"
+        "### Supported files"
+    )
+
+    st.markdown(
+        "PDF • DOCX • TXT"
+    )
+
+    st.markdown(
+        f"Maximum file size: **{MAX_FILE_MB} MB**"
     )
 
     st.markdown("---")
 
-    st.caption(
-        "ATS scores are estimates. Different employers "
-        "and ATS platforms use different parsing and "
-        "ranking rules."
+    st.markdown(
+        "### 💡 ATS scoring"
     )
 
+    st.caption(
+        "The score is an AI-assisted heuristic. "
+        "Different ATS platforms and employers "
+        "use different ranking systems."
+    )
+
+    if st.session_state.get("analysis"):
+
+        st.markdown("---")
+
+        if st.button(
+            "🗑️ Start New Analysis",
+            use_container_width=True
+        ):
+
+            st.session_state.pop(
+                "analysis",
+                None
+            )
+
+            st.session_state.pop(
+                "resume_name",
+                None
+            )
+
+            st.rerun()
+
 
 # ============================================================
-# INPUT AREA
+# INPUT SECTION
 # ============================================================
+
+st.markdown(
+    "## Analyze your resume"
+)
+
+st.markdown(
+    """
+    <div style="
+        color:#64748b;
+        margin-top:-10px;
+        margin-bottom:18px;
+        font-size:14px;
+    ">
+        Upload your resume and optionally provide the job
+        description you are targeting.
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
 
 left, right = st.columns(
     [1, 1],
@@ -949,9 +1267,26 @@ left, right = st.columns(
 
 with left:
 
+    st.markdown(
+        """
+        <div class="input-card">
+
+            <div class="input-card-title">
+                📄 Resume
+            </div>
+
+            <div class="input-card-subtitle">
+                Upload a text-based resume for analysis.
+            </div>
+
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
     uploaded_file = st.file_uploader(
 
-        "📄 Upload your resume",
+        "Upload resume",
 
         type=[
             "pdf",
@@ -959,39 +1294,64 @@ with left:
             "txt"
         ],
 
+        label_visibility="collapsed",
+
         help=(
-            "Text-based PDF, DOCX, or TXT. "
-            "Scanned/image-only PDFs may not "
-            "extract correctly."
+            "PDF, DOCX or TXT. "
+            "Scanned PDFs may not extract correctly."
         ),
     )
+
+    if uploaded_file:
+
+        st.success(
+            f"✓ {uploaded_file.name} is ready"
+        )
 
 
 with right:
 
+    st.markdown(
+        """
+        <div class="input-card">
+
+            <div class="input-card-title">
+                💼 Target job
+            </div>
+
+            <div class="input-card-subtitle">
+                Add the job description for more accurate
+                keyword matching.
+            </div>
+
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
     job_description = st.text_area(
 
-        "💼 Target job description (optional)",
+        "Target job description",
 
-        height=190,
+        height=180,
+
+        label_visibility="collapsed",
 
         placeholder=(
-            "Paste the target job description here "
-            "for more relevant keyword and ATS analysis..."
+            "Paste the target job description here..."
         ),
     )
 
 
-if uploaded_file:
+# ============================================================
+# ANALYZE BUTTON
+# ============================================================
 
-    st.success(
-        f"Ready to analyze: {uploaded_file.name}"
-    )
-
+st.markdown("")
 
 analyze_clicked = st.button(
 
-    "🔍 Analyze Resume",
+    "🚀 Analyze Resume",
 
     type="primary",
 
@@ -1009,7 +1369,6 @@ if analyze_clicked:
 
     api_key = get_api_key()
 
-
     if not api_key:
 
         st.error(
@@ -1017,32 +1376,27 @@ if analyze_clicked:
         )
 
         st.info(
-            "Add GEMINI_API_KEY to Streamlit Secrets "
-            "or your local environment."
+            "Add GEMINI_API_KEY to Streamlit Secrets."
         )
 
         st.stop()
 
-
     try:
 
         with st.spinner(
-            "Extracting resume and analyzing ATS readiness..."
+            "Analyzing your resume with Gemini..."
         ):
 
             resume_text = extract_resume(
                 uploaded_file
             )
 
-
             if len(resume_text) < 100:
 
                 st.warning(
                     "Very little text was extracted. "
-                    "The document may be image-based "
-                    "or empty."
+                    "The document may be image-based."
                 )
-
 
             analysis = analyze_resume(
 
@@ -1054,29 +1408,20 @@ if analyze_clicked:
 
             )
 
-
             st.session_state["analysis"] = analysis
 
             st.session_state["resume_name"] = (
                 uploaded_file.name
             )
 
-
         st.success(
-            "Resume analysis completed successfully."
+            "Analysis completed successfully."
         )
-
 
     except Exception as exc:
 
         st.error(
             f"Analysis failed: {exc}"
-        )
-
-        st.info(
-            "If this problem continues, check your "
-            "Gemini API key, model availability, API quota, "
-            "file type, and Streamlit logs."
         )
 
 
@@ -1093,16 +1438,60 @@ if analysis:
 
     st.markdown("---")
 
+    st.markdown(
+        f"## 📊 Resume Analysis"
+    )
 
-    st.subheader(
-        f"📊 Analysis for "
-        f"{st.session_state.get('resume_name', 'resume')}"
+    st.caption(
+        f"Results for {st.session_state.get('resume_name', 'resume')}"
     )
 
 
-    # --------------------------------------------------------
+    # ========================================================
+    # MAIN SCORE
+    # ========================================================
+
+    overall = analysis.ats_readiness
+
+    overall_color = score_color(
+        overall
+    )
+
+
+    st.html(
+        f"""
+        <div class="overall-card">
+
+            <div class="overall-title">
+                Overall ATS Readiness
+            </div>
+
+            <div
+                class="overall-score"
+                style="color:{overall_color};"
+            >
+                {overall}/100
+            </div>
+
+            <div class="overall-description">
+                Your overall resume score based on ATS
+                compatibility, keyword alignment,
+                formatting, experience impact,
+                skills, and completeness.
+            </div>
+
+        </div>
+        """
+    )
+
+
+    # ========================================================
     # SCORE CARDS
-    # --------------------------------------------------------
+    # ========================================================
+
+    st.markdown(
+        "### Score breakdown"
+    )
 
     cols = st.columns(
         5,
@@ -1140,46 +1529,46 @@ if analysis:
     ]
 
 
-    for col, (label, value) in zip(
+    for col, (label, score) in zip(
         cols,
         scores
     ):
 
         with col:
 
-            # IMPORTANT:
-            # Use st.html() instead of st.markdown()
-            # so the HTML cannot appear as plain text.
-
             st.html(
-                metric_card(
+                score_card_html(
                     label,
-                    value
+                    score
                 )
             )
 
 
-    # --------------------------------------------------------
-    # OVERALL ASSESSMENT
-    # --------------------------------------------------------
+    # ========================================================
+    # SUMMARY
+    # ========================================================
 
     st.markdown(
-        "### Overall assessment"
+        "### 🧠 Overall assessment"
     )
 
     st.markdown(
         f"""
-        <div class="result-box">
-            {analysis.summary}
+        <div class="result-card">
+
+            <div class="result-card-text">
+                {escape(analysis.summary)}
+            </div>
+
         </div>
         """,
         unsafe_allow_html=True,
     )
 
 
-    # --------------------------------------------------------
+    # ========================================================
     # TABS
-    # --------------------------------------------------------
+    # ========================================================
 
     tab1, tab2, tab3, tab4 = st.tabs(
 
@@ -1189,7 +1578,6 @@ if analysis:
             "🔑 Keywords & skills",
             "✍️ Rewrite ideas",
         ]
-
     )
 
 
@@ -1199,15 +1587,33 @@ if analysis:
 
     with tab1:
 
+        st.markdown(
+            "### Highest-impact improvements"
+        )
+
         if analysis.critical_issues:
 
-            st.markdown(
-                "#### Critical issues"
-            )
+            for i, item in enumerate(
+                analysis.critical_issues,
+                1
+            ):
 
-            for item in analysis.critical_issues:
+                st.markdown(
+                    f"""
+                    <div class="result-card">
 
-                st.error(item)
+                        <div class="result-card-title">
+                            🚨 Critical issue {i}
+                        </div>
+
+                        <div class="result-card-text">
+                            {escape(item)}
+                        </div>
+
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
 
         else:
 
@@ -1217,7 +1623,7 @@ if analysis:
 
 
         st.markdown(
-            "#### Recommended improvements"
+            "### Recommended improvements"
         )
 
 
@@ -1228,15 +1634,22 @@ if analysis:
                 1
             ):
 
-                st.write(
-                    f"**{i}.** {item}"
+                st.markdown(
+                    f"""
+                    <div class="result-card">
+
+                        <div class="result-card-title">
+                            {i:02d} &nbsp; Improvement
+                        </div>
+
+                        <div class="result-card-text">
+                            {escape(item)}
+                        </div>
+
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
                 )
-
-        else:
-
-            st.info(
-                "No additional improvements were suggested."
-            )
 
 
     # ========================================================
@@ -1245,11 +1658,30 @@ if analysis:
 
     with tab2:
 
+        st.markdown(
+            "### What your resume does well"
+        )
+
         if analysis.strengths:
 
             for item in analysis.strengths:
 
-                st.success(item)
+                st.markdown(
+                    f"""
+                    <div class="result-card">
+
+                        <div class="result-card-title">
+                            ✓ Strength
+                        </div>
+
+                        <div class="result-card-text">
+                            {escape(item)}
+                        </div>
+
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
 
         else:
 
@@ -1259,55 +1691,56 @@ if analysis:
 
 
         st.markdown(
-            "#### Detailed category feedback"
+            "### Detailed category analysis"
         )
 
 
         detail_cols = st.columns(
-            4,
-            gap="medium"
+            2,
+            gap="large"
         )
 
 
         details = [
 
             (
-                "Keyword alignment",
+                "🔑 Keyword alignment",
                 analysis.keyword_alignment
             ),
 
             (
-                "Formatting",
+                "🎨 Formatting",
                 analysis.formatting
             ),
 
             (
-                "Experience impact",
+                "📈 Experience impact",
                 analysis.experience_impact
             ),
 
             (
-                "Skills",
+                "🛠️ Skills",
                 analysis.skills
             ),
 
         ]
 
 
-        for col, (title, item) in zip(
-            detail_cols,
-            details
-        ):
+        for index, (
+            title,
+            item
+        ) in enumerate(details):
 
-            with col:
+            with detail_cols[index % 2]:
 
-                st.markdown(
-                    f"**{title}: {item.score}/100**"
-                )
+                with st.expander(
+                    f"{title} — {item.score}/100",
+                    expanded=True
+                ):
 
-                st.write(
-                    item.feedback
-                )
+                    st.write(
+                        item.feedback
+                    )
 
 
     # ========================================================
@@ -1316,44 +1749,40 @@ if analysis:
 
     with tab3:
 
+        st.markdown(
+            "### 🔑 Missing keywords"
+        )
+
         if analysis.missing_keywords:
 
-            st.markdown(
-                "**Keywords/skills to consider "
-                "adding — only if truthful:**"
+            st.caption(
+                "Consider adding these only when they "
+                "truthfully represent your experience."
             )
 
-
-            # Display each keyword individually
-            # instead of one large text string.
-
-            keyword_text = " • ".join(
-                analysis.missing_keywords
-            )
-
-            st.info(
-                keyword_text
+            st.html(
+                keyword_pills(
+                    analysis.missing_keywords
+                )
             )
 
         else:
 
             st.success(
-                "No major missing keywords "
-                "were identified."
+                "No major missing keywords were identified."
             )
 
 
         st.markdown(
-            "#### Sections to consider"
+            "### 📑 Recommended sections"
         )
-
 
         if analysis.recommended_sections:
 
             for item in analysis.recommended_sections:
 
-                st.write(
-                    f"• {item}"
+                st.markdown(
+                    f"✓ {item}"
                 )
 
         else:
@@ -1364,23 +1793,38 @@ if analysis:
 
 
     # ========================================================
-    # BULLET REWRITES
+    # REWRITE IDEAS
     # ========================================================
 
     with tab4:
 
+        st.markdown(
+            "### ✍️ Suggested bullet improvements"
+        )
+
         if analysis.suggested_bullet_rewrites:
 
-            st.markdown(
-                "#### Suggested bullet improvements"
-            )
-
-
-            for item in (
-                analysis.suggested_bullet_rewrites
+            for i, item in enumerate(
+                analysis.suggested_bullet_rewrites,
+                1
             ):
 
-                st.info(item)
+                st.markdown(
+                    f"""
+                    <div class="result-card">
+
+                        <div class="result-card-title">
+                            Bullet improvement {i}
+                        </div>
+
+                        <div class="result-card-text">
+                            {escape(item)}
+                        </div>
+
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
 
         else:
 
@@ -1393,17 +1837,14 @@ if analysis:
     # DISCLAIMER
     # ========================================================
 
-    st.markdown(
-        "### Important note"
-    )
+    st.markdown("---")
 
     st.caption(
-        "This analyzer estimates ATS readiness from "
-        "extracted resume text and, when supplied, "
-        "the target job description. It cannot "
-        "reproduce every employer's ATS ranking "
-        "algorithm and should not be treated as "
-        "a hiring prediction."
+        "This analyzer provides an AI-assisted ATS heuristic "
+        "based on extracted resume text and, when supplied, "
+        "the target job description. It cannot reproduce "
+        "every employer's ATS ranking algorithm and should "
+        "not be treated as a hiring prediction."
     )
 
 
@@ -1413,46 +1854,98 @@ if analysis:
 
 else:
 
-    st.markdown(
-        "### How it works"
+    st.html(
+        """
+        <div class="empty-card">
+
+            <div class="empty-icon">
+                📋
+            </div>
+
+            <div class="empty-title">
+                Ready to improve your resume?
+            </div>
+
+            <div class="empty-text">
+                Upload your resume above and optionally add
+                a target job description. The AI will analyze
+                your ATS readiness and show exactly where your
+                resume can be improved.
+            </div>
+
+        </div>
+        """
     )
 
 
-    steps = st.columns(
+    st.markdown(
+        "### How the analyzer works"
+    )
+
+
+    step_cols = st.columns(
         3,
         gap="large"
     )
 
 
-    with steps[0]:
+    steps = [
 
-        st.markdown(
-            "### 1️⃣ Upload"
-        )
+        (
+            "01",
+            "Upload",
+            "Upload your PDF, DOCX, or TXT resume."
+        ),
 
-        st.write(
-            "Add a PDF, DOCX, or TXT resume."
-        )
+        (
+            "02",
+            "Match",
+            "Add a target job description for keyword matching."
+        ),
+
+        (
+            "03",
+            "Improve",
+            "Get an ATS score and actionable recommendations."
+        ),
+
+    ]
 
 
-    with steps[1]:
+    for col, (
+        number,
+        title,
+        description
+    ) in zip(
+        step_cols,
+        steps
+    ):
 
-        st.markdown(
-            "### 2️⃣ Match"
-        )
+        with col:
 
-        st.write(
-            "Optionally paste the target job description."
-        )
+            st.markdown(
+                f"""
+                <div class="result-card">
 
+                    <div style="
+                        color:#4f46e5;
+                        font-weight:900;
+                        font-size:0.8rem;
+                        letter-spacing:0.08em;
+                    ">
+                        STEP {number}
+                    </div>
 
-    with steps[2]:
+                    <div class="result-card-title"
+                         style="font-size:1.1rem;margin-top:8px;">
+                        {title}
+                    </div>
 
-        st.markdown(
-            "### 3️⃣ Improve"
-        )
+                    <div class="result-card-text">
+                        {description}
+                    </div>
 
-        st.write(
-            "Get an ATS score, issues, missing keywords, "
-            "and actionable rewrite ideas."
-        )
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
